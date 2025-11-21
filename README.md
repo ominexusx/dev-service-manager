@@ -1,5 +1,10 @@
 # Dev Service Manager
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub stars](https://img.shields.io/github/stars/ominexusx/dev-service-manager)](https://github.com/ominexusx/dev-service-manager/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/ominexusx/dev-service-manager)](https://github.com/ominexusx/dev-service-manager/issues)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 A powerful Electron + React application for managing multiple development services from a single interface. Perfect for developers working on microservices, monorepos, or multiple concurrent projects.
 
 ![Dev Service Manager](screenshot.png)
@@ -221,6 +226,18 @@ Feel free to open issues or submit pull requests for improvements!
 ## License
 
 MIT
+
+## Contributing
+
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## Support
+
+If you find this project helpful, please give it a ⭐️ on [GitHub](https://github.com/ominexusx/dev-service-manager)!
+
+## Issues
+
+Found a bug or have a feature request? Please open an issue on [GitHub Issues](https://github.com/ominexusx/dev-service-manager/issues).
 
 ## Future Enhancements
 
