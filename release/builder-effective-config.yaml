@@ -1,0 +1,28 @@
+directories:
+  output: release
+  buildResources: assets
+appId: com.devservicemanager.app
+productName: Dev Service Manager
+files:
+  - filter:
+      - dist/**/*
+      - assets/**/*
+      - package.json
+win:
+  target: nsis
+  icon: assets/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+mac:
+  target: dmg
+  icon: assets/icon.icns
+linux:
+  target:
+    - AppImage
+    - deb
+  icon: assets/icon.png
+  category: Development
+electronVersion: 28.3.3

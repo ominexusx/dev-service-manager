@@ -1,25 +1,29 @@
 import React, { useState } from 'react';
-import { Service } from '../types';
+import { Service, ServiceGroup } from '../types';
 
 interface AddServiceModalProps {
+  groups: ServiceGroup[];
   onClose: () => void;
   onAdd: (service: Omit<Service, 'id' | 'status'>) => void;
 }
 
-const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onAdd }) => {
+const AddServiceModal: React.FC<AddServiceModalProps> = ({
+  groups,
+  onClose,
+  onAdd
+}) => {
   const [name, setName] = useState('');
   const [command, setCommand] = useState('');
   const [workingDirectory, setWorkingDirectory] = useState('');
   const [envVars, setEnvVars] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [port, setPort] = useState<string>('');
+  const [autoRestart, setAutoRestart] = useState(false);
 
   const handleSelectDirectory = async () => {
-    console.log('Browse clicked, electronAPI available:', !!window.electronAPI);
-    
     if (window.electronAPI) {
       try {
-        console.log('Calling selectDirectory...');
         const dir = await window.electronAPI.selectDirectory();
-        console.log('Selected directory:', dir);
         if (dir) {
           setWorkingDirectory(dir);
         }
@@ -28,14 +32,13 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onAdd }) => 
         alert('Failed to open directory selector: ' + error);
       }
     } else {
-      console.error('electronAPI not available - running in browser mode?');
       alert('Directory browser not available. Please enter the path manually.');
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim() || !command.trim() || !workingDirectory.trim()) {
       alert('Please fill in all required fields');
       return;
@@ -56,6 +59,9 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onAdd }) => 
       command: command.trim(),
       workingDirectory: workingDirectory.trim(),
       env: Object.keys(env).length > 0 ? env : undefined,
+      group: selectedGroup || undefined,
+      port: port ? parseInt(port, 10) : undefined,
+      autoRestart,
     });
   };
 
@@ -75,17 +81,39 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onAdd }) => 
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Service Name *
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., API Server"
-              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-primary-500"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Service Name *
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., API Server"
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-primary-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Group
+              </label>
+              <input
+                type="text"
+                value={selectedGroup}
+                onChange={(e) => setSelectedGroup(e.target.value)}
+                placeholder="e.g., Backend, Frontend, Database"
+                list="group-suggestions"
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-primary-500"
+              />
+              <datalist id="group-suggestions">
+                {groups.map((group: ServiceGroup) => (
+                  <option key={group.id} value={group.name} />
+                ))}
+              </datalist>
+              <p className="text-xs text-gray-500 mt-1">Type a new group name or choose from existing</p>
+            </div>
           </div>
 
           <div>
@@ -123,6 +151,33 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onAdd }) => 
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Port (optional)
+              </label>
+              <input
+                type="number"
+                value={port}
+                onChange={(e) => setPort(e.target.value)}
+                placeholder="e.g., 3000"
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-primary-500"
+              />
+            </div>
+
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 cursor-pointer pb-2">
+                <input
+                  type="checkbox"
+                  checked={autoRestart}
+                  onChange={(e) => setAutoRestart(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-300">Auto-restart on crash</span>
+              </label>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Environment Variables (optional)
@@ -131,7 +186,7 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({ onClose, onAdd }) => 
               value={envVars}
               onChange={(e) => setEnvVars(e.target.value)}
               placeholder="KEY=value&#10;ANOTHER_KEY=another_value"
-              rows={4}
+              rows={3}
               className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 font-mono text-sm"
             />
             <p className="text-xs text-gray-500 mt-1">One per line, format: KEY=value</p>

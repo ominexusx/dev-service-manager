@@ -1,0 +1,4 @@
+owner: ominexusx
+repo: dev-service-manager
+provider: github
+updaterCacheDirName: dev-service-manager-updater

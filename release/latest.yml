@@ -1,0 +1,8 @@
+version: 1.0.0
+files:
+  - url: Dev-Service-Manager-Setup-1.0.0.exe
+    sha512: UhkC7cruvGoKPYa+5cXtfDU0n3/UxoAhDSm92CZf3MNtkn+lbXFwArSvcf+RlCjSkcmdAfrwvcjQzN202SaJYA==
+    size: 78799352
+path: Dev-Service-Manager-Setup-1.0.0.exe
+sha512: UhkC7cruvGoKPYa+5cXtfDU0n3/UxoAhDSm92CZf3MNtkn+lbXFwArSvcf+RlCjSkcmdAfrwvcjQzN202SaJYA==
+releaseDate: '2026-01-05T16:18:10.706Z'

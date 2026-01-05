@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Notification } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { ServiceManager } from './serviceManager';
 
 let mainWindow: BrowserWindow | null = null;
@@ -12,39 +13,46 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     backgroundColor: '#0f172a',
+    icon: path.join(__dirname, '../assets/icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-      devTools: process.env.NODE_ENV === 'development', // Only allow DevTools in development
+      devTools: process.env.NODE_ENV === 'development',
     },
   });
 
   // Load the app
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:5173');
-    // Don't auto-open DevTools
-    // mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, 'renderer/index.html'));
   }
-  
-  // Prevent opening DevTools with keyboard shortcuts
+
+  // Prevent opening DevTools with keyboard shortcuts in production
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C
-    if (
-      input.key === 'F12' ||
-      (input.control && input.shift && input.key === 'I') ||
-      (input.control && input.shift && input.key === 'J') ||
-      (input.control && input.shift && input.key === 'C')
-    ) {
-      event.preventDefault();
+    if (process.env.NODE_ENV !== 'development') {
+      if (
+        input.key === 'F12' ||
+        (input.control && input.shift && input.key === 'I') ||
+        (input.control && input.shift && input.key === 'J') ||
+        (input.control && input.shift && input.key === 'C')
+      ) {
+        event.preventDefault();
+      }
     }
   });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+}
+
+// Show notification
+function showNotification(title: string, body: string) {
+  if (Notification.isSupported()) {
+    new Notification({ title, body }).show();
+  }
 }
 
 app.whenReady().then(() => {
@@ -73,9 +81,23 @@ function setupIpcHandlers() {
   // Start a service
   ipcMain.handle('service:start', async (_, serviceId: string, config: any) => {
     try {
-      await serviceManager.start(serviceId, config, (sId: string, data: any) => {
-        mainWindow?.webContents.send('service:output', { serviceId: sId, data });
-      });
+      await serviceManager.start(
+        serviceId,
+        config,
+        (sId: string, data: any) => {
+          mainWindow?.webContents.send('service:output', { serviceId: sId, data });
+        },
+        (sId: string, code: number | null) => {
+          mainWindow?.webContents.send('service:exit', { serviceId: sId, code });
+          // Show notification on crash
+          if (code !== 0 && code !== null) {
+            showNotification(
+              'Service Crashed',
+              `${config.name} exited with code ${code}`
+            );
+          }
+        }
+      );
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -97,9 +119,16 @@ function setupIpcHandlers() {
     try {
       await serviceManager.stop(serviceId);
       await new Promise(resolve => setTimeout(resolve, 500));
-      await serviceManager.start(serviceId, config, (sId: string, data: any) => {
-        mainWindow?.webContents.send('service:output', { serviceId: sId, data });
-      });
+      await serviceManager.start(
+        serviceId,
+        config,
+        (sId: string, data: any) => {
+          mainWindow?.webContents.send('service:output', { serviceId: sId, data });
+        },
+        (sId: string, code: number | null) => {
+          mainWindow?.webContents.send('service:exit', { serviceId: sId, code });
+        }
+      );
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -124,19 +153,71 @@ function setupIpcHandlers() {
   // Select directory
   ipcMain.handle('dialog:selectDirectory', async () => {
     if (!mainWindow) {
-      console.error('No main window available for dialog');
       return null;
     }
-    
+
     try {
       const result = await dialog.showOpenDialog(mainWindow, {
         properties: ['openDirectory'],
         title: 'Select Working Directory',
       });
-      console.log('Dialog result:', result);
       return result.canceled ? null : result.filePaths[0];
     } catch (error) {
       console.error('Error opening dialog:', error);
+      return null;
+    }
+  });
+
+  // Save file dialog
+  ipcMain.handle('dialog:saveFile', async (_, content: string, defaultName: string) => {
+    if (!mainWindow) {
+      return false;
+    }
+
+    try {
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: 'Save Configuration',
+        defaultPath: defaultName,
+        filters: [
+          { name: 'JSON Files', extensions: ['json'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+
+      if (!result.canceled && result.filePath) {
+        fs.writeFileSync(result.filePath, content, 'utf-8');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error saving file:', error);
+      return false;
+    }
+  });
+
+  // Open file dialog
+  ipcMain.handle('dialog:openFile', async () => {
+    if (!mainWindow) {
+      return null;
+    }
+
+    try {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Import Configuration',
+        properties: ['openFile'],
+        filters: [
+          { name: 'JSON Files', extensions: ['json'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+
+      if (!result.canceled && result.filePaths.length > 0) {
+        const content = fs.readFileSync(result.filePaths[0], 'utf-8');
+        return content;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error opening file:', error);
       return null;
     }
   });

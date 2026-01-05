@@ -6,6 +6,9 @@ export interface ServiceConfig {
   command: string;
   workingDirectory: string;
   env?: Record<string, string>;
+  port?: number;
+  group?: string;
+  autoRestart?: boolean;
 }
 
 export interface OutputData {
@@ -15,6 +18,7 @@ export interface OutputData {
 }
 
 export type OutputCallback = (serviceId: string, data: OutputData) => void;
+export type ExitCallback = (serviceId: string, code: number | null) => void;
 
 interface ServiceProcess {
   config: ServiceConfig;
@@ -28,7 +32,8 @@ export class ServiceManager {
   async start(
     serviceId: string,
     config: ServiceConfig,
-    outputCallback: OutputCallback
+    outputCallback: OutputCallback,
+    exitCallback?: ExitCallback
   ): Promise<void> {
     // Stop existing service if running
     if (this.services.has(serviceId)) {
@@ -83,14 +88,19 @@ export class ServiceManager {
         childProcess.on('exit', (code, signal) => {
           const service = this.services.get(serviceId);
           if (service) {
-            service.status = 'stopped';
+            service.status = code === 0 ? 'stopped' : 'error';
           }
 
           outputCallback(serviceId, {
-            type: 'info',
+            type: code === 0 ? 'info' : 'error',
             text: `\nProcess exited with code ${code} ${signal ? `(signal: ${signal})` : ''}\n`,
             timestamp: Date.now(),
           });
+
+          // Notify about exit for auto-restart
+          if (exitCallback) {
+            exitCallback(serviceId, code);
+          }
         });
 
         // Handle process error
@@ -105,6 +115,10 @@ export class ServiceManager {
             text: `Error: ${error.message}\n`,
             timestamp: Date.now(),
           });
+
+          if (exitCallback) {
+            exitCallback(serviceId, 1);
+          }
 
           reject(error);
         });
@@ -150,8 +164,22 @@ export class ServiceManager {
         resolve();
       });
 
-      // Try graceful shutdown first
-      childProcess.kill('SIGTERM');
+      // Try graceful shutdown first (Windows uses taskkill approach)
+      if (process.platform === 'win32') {
+        // On Windows, we need to kill the process tree
+        const pid = childProcess.pid;
+        if (pid) {
+          try {
+            spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'], { shell: true });
+          } catch {
+            childProcess.kill('SIGKILL');
+          }
+        } else {
+          childProcess.kill('SIGTERM');
+        }
+      } else {
+        childProcess.kill('SIGTERM');
+      }
 
       // If process doesn't exist, resolve immediately
       if (childProcess.killed) {
