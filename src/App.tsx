@@ -142,6 +142,7 @@ function App() {
     updateService(id, { status: 'running' });
 
     const result = await window.electronAPI.startService(id, {
+      name: service.name,
       command: service.command,
       workingDirectory: service.workingDirectory,
       env: service.env,
@@ -164,6 +165,7 @@ function App() {
     if (!service || !window.electronAPI) return;
 
     await window.electronAPI.restartService(id, {
+      name: service.name,
       command: service.command,
       workingDirectory: service.workingDirectory,
       env: service.env,

@@ -1,16 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Service, ServiceGroup } from '../types';
+import ServicePresetsModal from './ServicePresets';
 
 interface AddServiceModalProps {
   groups: ServiceGroup[];
   onClose: () => void;
   onAdd: (service: Omit<Service, 'id' | 'status'>) => void;
+  existingServiceNames?: string[];
+  onAddPresets?: (presets: { name: string; command: string; workingDirectory: string; port?: number; group?: string }[]) => void;
 }
+
+// Quick add preset names
+const QUICK_ADD_NAMES = ['Auth', 'User', 'Post', 'Comment', 'Like', 'Connection'];
 
 const AddServiceModal: React.FC<AddServiceModalProps> = ({
   groups,
   onClose,
-  onAdd
+  onAdd,
+  existingServiceNames = [],
+  onAddPresets
 }) => {
   const [name, setName] = useState('');
   const [command, setCommand] = useState('');
@@ -19,6 +27,17 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({
   const [selectedGroup, setSelectedGroup] = useState('');
   const [port, setPort] = useState<string>('');
   const [autoRestart, setAutoRestart] = useState(false);
+  const [showPresetsModal, setShowPresetsModal] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle quick add button click - sets the name and focuses the input
+  const handleQuickAdd = (serviceName: string) => {
+    setName(serviceName);
+    // Focus the name input to show the user where the value was set
+    if (nameInputRef.current) {
+      nameInputRef.current.focus();
+    }
+  };
 
   const handleSelectDirectory = async () => {
     if (window.electronAPI) {
@@ -70,23 +89,70 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({
       <div className="bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl mx-4">
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
           <h2 className="text-xl font-bold text-white">Add New Service</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-3">
+            {onAddPresets && (
+              <button
+                type="button"
+                onClick={() => setShowPresetsModal(true)}
+                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Load Presets
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Quick Add Section */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Quick Add
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {QUICK_ADD_NAMES.map((presetName) => (
+                <button
+                  key={presetName}
+                  type="button"
+                  onClick={() => handleQuickAdd(presetName)}
+                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${name === presetName
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                    }`}
+                >
+                  {presetName}
+                </button>
+              ))}
+              {onAddPresets && (
+                <button
+                  type="button"
+                  onClick={() => setShowPresetsModal(true)}
+                  className="px-3 py-1.5 text-sm bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 rounded-lg transition-colors"
+                >
+                  More...
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Service Name *
               </label>
               <input
+                ref={nameInputRef}
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -209,6 +275,18 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Presets Modal */}
+      {showPresetsModal && onAddPresets && (
+        <ServicePresetsModal
+          onClose={() => setShowPresetsModal(false)}
+          onSelectPresets={(presets) => {
+            onAddPresets(presets);
+            setShowPresetsModal(false);
+          }}
+          existingServiceNames={existingServiceNames}
+        />
+      )}
     </div>
   );
 };
